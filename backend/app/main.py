@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Body
 from app.services.parser import extract_text
 from app.services.chunker import chunk_text
 from app.services.vectordb import get_vectorstore
@@ -9,7 +9,18 @@ from app.services.ai_engine import (
     generate_interview_questions
 )
 
-app = FastAPI(title="AI Resume Coach")
+# Import the interview bot functions
+from app.services.interview_bot import (
+    generate_question,
+    evaluate_answer,
+    get_history,
+    reset_session
+)
+
+app = FastAPI(title="AI Resume Coach & Interview Bot")
+
+
+# Resume & Job Description APIs
 
 @app.post("/upload/resume")
 async def upload_resume(file: UploadFile = File(...)):
@@ -20,10 +31,7 @@ async def upload_resume(file: UploadFile = File(...)):
         vectordb = get_vectorstore("resume")
         vectordb.add_texts(chunks)
 
-        return {
-            "message": "Resume stored successfully",
-            "chunks": len(chunks)
-        }
+        return {"message": "Resume stored successfully", "chunks": len(chunks)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -37,13 +45,14 @@ async def upload_jd(file: UploadFile = File(...)):
         vectordb = get_vectorstore("job_description")
         vectordb.add_texts(chunks)
 
-        return {
-            "message": "JD stored successfully",
-            "chunks": len(chunks)
-        }
+        return {"message": "JD stored successfully", "chunks": len(chunks)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-      
+
+
+
+# Semantic Search
+
 @app.get("/search/{source}")
 def semantic_search(source: str, query: str):
     if source not in ["resume", "jd"]:
@@ -52,11 +61,12 @@ def semantic_search(source: str, query: str):
     vectordb = get_vectorstore(source)
     results = vectordb.similarity_search(query, k=3)
 
-    return {
-        "query": query,
-        "results": [r.page_content for r in results]
-    }
-    
+    return {"query": query, "results": [r.page_content for r in results]}
+
+
+
+# AI-driven Resume Analysis
+
 @app.get("/ai/match-score")
 def match_score():
     return calculate_match_score()
@@ -76,3 +86,23 @@ def improve():
 def interview_questions():
     return generate_interview_questions()
 
+
+
+# Interactive Interview Endpoints
+
+@app.get("/chatbot/next-question")
+def next_question_endpoint():
+    result = generate_question()
+    return result 
+
+
+@app.post("/chatbot/answer")
+def answer_endpoint(user_answer: str = Body(..., embed=True)):
+    result = evaluate_answer(user_answer)
+    return result
+
+
+@app.get("/chatbot/status")
+def status_endpoint():
+    from app.services.interview_bot import get_session_status
+    return get_session_status()

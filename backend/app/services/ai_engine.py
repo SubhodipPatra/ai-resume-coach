@@ -8,7 +8,7 @@ llm = ChatOpenAI(
 )
 
 def get_resume_jd_context():
-    resume_db = get_vectorstore("resume_docs")
+    resume_db = get_vectorstore("resume")
     jd_db = get_vectorstore("job_description")
 
     resume_docs = resume_db.similarity_search("resume content", k=5)
